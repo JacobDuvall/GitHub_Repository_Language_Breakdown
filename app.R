@@ -1,12 +1,23 @@
 library(shiny)
 library(gh)
+library(ECharts2Shiny)
+
+dat <- c(rep("Type-A", 8),
+         rep("Type-B", 5),
+         rep("Type-C", 1))
+
 
     ui = bootstrapPage(
+        loadEChartsLibrary(),
+        
         column(12,offset=4, titlePanel("GitHub Repository Language Breakdown")),
         column(12, offset =1,textInput("text", label = h4("Search GitHub username:"))),
         
         column(12, offset = 4, uiOutput('variables')),
-        uiOutput('selected_repo')
+        textOutput('selected_repo'),
+        
+        tags$div(id="test", style="width:50%;height:400px;"),
+        deliverChart(div_id = "test")
     )
     
     server = function(input, output){
@@ -35,33 +46,43 @@ library(gh)
         })
         
         repo_react = reactive({
-            if(input$text > 0) {
                 tryCatch({
                     url2 = paste("GET /repos/", input$text, "/", input$variables2, "/languages", sep = "")
                     language_list = gh(url2)
                     total = 0
+                    print(language_list)
                     for(i in 1:length(language_list)) {
                         language = names(language_list)[i]
                         total = total + language_list[[language]]
                     }
+                    
+                    #cmd = ""
+                    df = data.frame()
                     for (i in 1:length(language_list)) {
                         language = names(language_list)[i]
                         percent = (language_list[[language]] / total) * 100
-                        cmd = paste(cmd, language, " : ", percent, "%\n", sep = "")
+                        df = rbind(df, data.frame(rep(language, percent)))
+                        #cmd = paste(cmd, language, " : ", percent, "%", sep = "")
+                        #cmd = paste(cmd, "<br />", sep = "")
                     }
-                    print(cmd)
-                    return(cmd)
+                    return(df)
                 
                 }, error = function(e) {
-                    return("Repository failed to load")
+                    print("Repository failed to load")
+                    return(data.frame(c(rep("No Values", 1))))
                 }, warning = function(w) {
-                    return("Repository failed to load")
+                    print("Repository failed to load")
+                    return(data.frame(c(rep("No Values", 1))))
                 })
-            }
+            
         })
         
-        output$selected_repo = renderText({
+        output$selected_repo = renderUI({
             repo_react() })
+        
+        renderPieChart(div_id = "test",
+                       data = dat)
+        
         
 
     }
